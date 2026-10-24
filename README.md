@@ -763,9 +763,9 @@ The application is intended to assist with job discovery and application prepara
 ---
 
 ## Author
+### Adam Lokhandwalla
 
-Built as an ongoing Python, web-scraping, automation, and AI/LLM learning project.
+This project is part of an ongoing effort to develop practical skills in Python, AI/LLMs, automation, web scraping, data analysis, and application development.
 
-The project is intentionally being developed iteratively: build something useful, test it, identify where it breaks, change the approach, and improve it.
+Email: 200chambers@gmail.com
 
-One thing I **wouldn't** put in the README is a claim like “Ollama v0.x.x” unless you know the exact installed Ollama version. **Llama 3.2:1b is the model version, not the Ollama version.** If you run `ollama --version`, send me the result and I can add the exact version cleanly.
