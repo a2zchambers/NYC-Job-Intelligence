@@ -1,25 +1,77 @@
-import streamlit as st
-import sqlite3
-import pandas as pd
-from datetime import datetime
-import os
-import platform
-import re
-from docx import Document
+"""
+=============================================================================
+                    HOW TO SET UP AND RUN THIS PROGRAM
+=============================================================================
+If you have never coded before, follow these simple steps on your computer:
+
+STEP 1: INSTALL PYTHON
+1. Go to https://www.python.org/downloads/ and download Python (version 3.10 or newer).
+2. Run the installer. 
+   IMPORTANT: Make sure to check the box that says "Add Python to PATH" before 
+   clicking "Install Now".
+
+STEP 2: OPEN YOUR COMMAND LINE / TERMINAL
+- Windows: Press the Windows Key, type "cmd", and open "Command Prompt".
+- Mac: Press Command + Space, type "Terminal", and open it.
+
+STEP 3: INSTALL THE REQUIRED LIBRARIES
+Copy and paste the following commands into your command prompt/terminal 
+and press Enter after each line to install all necessary packages:
+
+    pip install streamlit pandas python-docx selenium beautifulsoup4 pypdf
+
+(Note: 'sqlite3', 'datetime', 'os', 'platform', 're', 'urllib', 'io', and 'time' 
+ come pre-installed with Python so you do not need to install them separately).
+
+STEP 4: INSTALL GOOGLE CHROME & CHROMEDRIVER
+This app uses Google Chrome to automatically visit job board pages and extract listings.
+1. Make sure Google Chrome is installed on your computer.
+2. Selenium will automatically connect to your system's Chrome browser.
+
+STEP 5: SAVE AND RUN THIS SCRIPT
+1. Save this code into a file named exactly: `resume_job_intelligence.py`
+2. Open your command prompt/terminal, navigate to the folder where you saved the file 
+   (e.g., type `cd Documents`), and run the web app by typing:
+    
+    streamlit run resume_job_intelligence.py
+
+3. A webpage will automatically open in your web browser where you can upload 
+   your master resume and run the multi-page scraper!
+=============================================================================
+"""
+
+# Import necessary built-in Python modules
+import sqlite3                  # Database library to store scraped jobs on your local computer
+import os                       # Module for executing operating system level operations
+import platform                 # Used to check if your computer is running Windows, Mac, or Linux
+import re                       # Regular expressions library for matching pattern strings (dates, text)
+import time                     # Adds delays to give web pages time to fully load
+from datetime import datetime   # Used for creating timestamps for saved job listings
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse  # URL parsing and rebuilding tools
+
+# Import third-party libraries for web apps, document handling, and scraping
+import streamlit as st          # Web application framework used to build the user interface
+import pandas as pd             # Data analysis library used to construct and display tables
+from docx import Document       # Library for reading Microsoft Word (.docx) documents
+from bs4 import BeautifulSoup   # HTML parser for searching and pulling data out of web pages
+
+# Import Selenium components for web browser automation
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from bs4 import BeautifulSoup
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
-import time
 
 # --- PAGE CONFIG ---
+# Sets up the browser tab title, icon, and wide page layout
 st.set_page_config(page_title="Resume-Gated Job Intelligence & Multi-Page AI Scraper", page_icon="🎯", layout="wide")
 
 # --- DATABASE SETUP & AUTO-PURGE NOISE ---
 def init_db():
+    """
+    Creates a local SQLite database named 'jobs_batch.db' and a table called 'batch_jobs_v16'
+    if they do not already exist. It also automatically cleans out irrelevant/noisy records.
+    """
     try:
         with sqlite3.connect("jobs_batch.db", check_same_thread=False) as conn:
             cursor = conn.cursor()
@@ -44,6 +96,7 @@ def init_db():
             ''')
             
             # --- PURGE UI NOISE & IRRELEVANT ROLES ---
+            # Remove junk entries scraped from buttons or non-relevant company listings
             cursor.execute("DELETE FROM batch_jobs_v16 WHERE job_title LIKE '%Clear Filters%' OR job_title LIKE '%Caretaker%' OR job_title LIKE '%Matching candidate%' OR job_title LIKE '%No valid title%'")
             cursor.execute("DELETE FROM batch_jobs_v16 WHERE job_title LIKE '%Funding Advisor%' OR agency LIKE '%Flatrock%' OR agency LIKE '%Options Group%' OR agency LIKE '%ELH MGMT%'")
             conn.commit()
@@ -55,6 +108,10 @@ def init_db():
 db_initialized = init_db()
 
 def save_jobs_batch(url, jobs_list):
+    """
+    Saves a list of scraped job postings into the SQLite database.
+    Prevents duplicate entries by ignoring listings with already-saved URLs.
+    """
     try:
         with sqlite3.connect("jobs_batch.db", check_same_thread=False) as conn:
             cursor = conn.cursor()
@@ -89,6 +146,10 @@ def save_jobs_batch(url, jobs_list):
 
 # --- RESUME PARSER & DYNAMIC FILTER ENGINE ---
 def parse_uploaded_resume(uploaded_file):
+    """
+    Reads the contents of an uploaded resume file (.pdf, .docx, or plain text)
+    and extracts all text into a single python string.
+    """
     text = ""
     try:
         file_extension = uploaded_file.name.split('.')[-1].lower()
@@ -114,6 +175,10 @@ def parse_uploaded_resume(uploaded_file):
     return text.strip()
 
 def extract_resume_competencies(resume_text):
+    """
+    Scans the uploaded resume text for standard professional skill keywords 
+    to tailor ATS search tags and job matching later.
+    """
     common_skills = [
         'python', 'sql', 'langgraph', 'llm', 'financial modeling', 'credit underwriting',
         'quantitative', 'risk analysis', 'dcf', 'valuation', 'excel', 'bloomberg', 
@@ -124,13 +189,19 @@ def extract_resume_competencies(resume_text):
     return [skill for skill in common_skills if skill in resume_text.lower()]
 
 def is_job_strictly_relevant(title, card_text):
+    """
+    Filters out unwanted job postings (e.g., manual labor, healthcare, UI buttons, internships)
+    and keeps target professional roles like analyst, finance, operations, or data positions.
+    """
     title_lower = title.lower()
     text_lower = card_text.lower()
     
+    # Filter out website control text / buttons wrongly scraped as job titles
     ui_noise = ['clear filters', 'apply', 'view job', 'details', 'save', 'filter by', 'sort by', 'matching candidate', 'no valid title', 'sign in']
     if any(noise in title_lower for noise in ui_noise) or len(title_lower) < 4:
         return False
         
+    # Explicitly filter out non-target job categories
     negative_keywords = [
         'caretaker', 'cook', 'cleaner', 'custodian', 'driver', 'carpenter', 
         'plumber', 'electrician', 'painter', 'mechanic', 'nurse', 'doctor', 
@@ -141,6 +212,7 @@ def is_job_strictly_relevant(title, card_text):
     if any(neg in title_lower or neg in text_lower for neg in negative_keywords):
         return False
         
+    # Keep postings that match target career terms
     positive_anchors = [
         'analyst', 'finance', 'credit', 'lending', 'underwriter', 'risk', 
         'investment', 'banking', 'quantitative', 'software', 'data', 'python', 
@@ -150,6 +222,10 @@ def is_job_strictly_relevant(title, card_text):
     return any(anchor in title_lower or anchor in text_lower for anchor in positive_anchors)
 
 def generate_ats_keywords(title, card_text, resume_competencies):
+    """
+    Discovers keywords inside the job posting text and matches them against the candidate's 
+    resume competencies to generate structured ATS tags.
+    """
     title_lower = title.lower()
     text_lower = card_text.lower()
     
@@ -165,6 +241,10 @@ def generate_ats_keywords(title, card_text, resume_competencies):
     return ", ".join(found[:6]) if found else "Finance, Analysis, Compliance"
 
 def extract_posted_until(card_text):
+    """
+    Uses regular expressions to extract application closing dates or deadlines 
+    from the text of a job posting card.
+    """
     match = re.search(r'posted\s*until\s*[\r\n\s]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4}|[A-Za-z]+\s+[0-9]{1,2},\s+[0-9]{4})', card_text, re.IGNORECASE)
     if match:
         return match.group(1).strip()
@@ -176,6 +256,10 @@ def extract_posted_until(card_text):
     return "Open / Unspecified"
 
 def extract_highlighted_keywords(title, card_text, category_type="min"):
+    """
+    Parses job details to extract key qualifications (minimum qualifications, preferred qualifications, or skills) 
+    and formats them as clean bullet/pipe separated highlights.
+    """
     text_lower = card_text.lower()
     title_lower = title.lower()
     
@@ -226,6 +310,10 @@ def extract_highlighted_keywords(title, card_text, category_type="min"):
         return "Microsoft Office | Excel | Data Analysis Tools"
 
 def kill_zombie_drivers():
+    """
+    Closes orphaned background Chrome or Chromedriver processes 
+    to free up computer RAM and CPU resources between scraping runs.
+    """
     try:
         system_name = platform.system()
         if system_name == "Windows":
@@ -238,10 +326,14 @@ def kill_zombie_drivers():
         pass
 
 def scrape_single_page(url, headless_mode=True):
+    """
+    Launches an automated Chrome browser instance, navigates to the target page URL, 
+    waits for content to load, and returns the full web page HTML content.
+    """
     kill_zombie_drivers()
     options = Options()
     if headless_mode:
-        options.add_argument("--headless=new")
+        options.add_argument("--headless=new")  # Runs Chrome invisibly in the background
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -253,6 +345,7 @@ def scrape_single_page(url, headless_mode=True):
         driver = webdriver.Chrome(options=options)
         driver.set_page_load_timeout(15)
         driver.get(url)
+        # Wait up to 8 seconds for web links to render on page
         WebDriverWait(driver, 8).until(EC.presence_of_element_located((By.TAG_NAME, "a")))
         html = driver.page_source
         if not html or len(html.strip()) < 100:
@@ -269,6 +362,10 @@ def scrape_single_page(url, headless_mode=True):
         kill_zombie_drivers()
 
 def build_paged_url(base_url, page_num):
+    """
+    Updates or inserts the 'page' parameter in a web link URL 
+    so the scraper can iterate across multi-page search results.
+    """
     parsed = urlparse(base_url)
     query_params = parse_qs(parsed.query)
     query_params['page'] = [str(page_num)]
@@ -285,12 +382,13 @@ uploaded_resume_file = st.sidebar.file_uploader(
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### ⚙️ Scraper Settings")
-run_headless = st.sidebar.checkbox("Run Headless Browser", value=True, help="Uncheck to watch actions live.")
+run_headless = st.sidebar.checkbox("Run Headless Browser", value=True, help="Uncheck to watch browser actions live.")
 
 user_resume_text = ""
 resume_validated = False
 resume_competencies = []
 
+# Validate and process the uploaded resume
 if uploaded_resume_file is not None:
     with st.spinner("Parsing resume & extracting competencies..."):
         raw_text = parse_uploaded_resume(uploaded_resume_file)
@@ -321,6 +419,7 @@ if resume_validated:
         status_placeholder = st.empty()
         overall_progress = st.progress(0)
         
+        # Loop sequentially across pages
         for p in range(1, max_pages + 1):
             current_page_url = build_paged_url(search_url, p)
             status_placeholder.info(f"🔄 Processing Page {p} of {max_pages} (Isolated scraping & saving)...")
@@ -451,7 +550,7 @@ if resume_validated:
                                 with st.spinner("Injecting discovered ATS keywords and compiling tailored resume..."):
                                     st.success("✅ ATS-Optimized Resume Generated Successfully!")
                                     
-                                    # Render the comprehensive resume injecting the exact row['ats_keywords']
+                                    # Render the tailored resume incorporating the row's extracted ATS keywords
                                     st.markdown(f"""
                                     ---
                                     ### **ADAM LOKHANDWALLA**
