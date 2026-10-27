@@ -1,44 +1,69 @@
 """
 =============================================================================
-                    HOW TO SET UP AND RUN THIS PROGRAM
+             🚀 ULTIMATE SETUP & TROUBLESHOOTING GUIDE (FOR NON-CODERS)
 =============================================================================
-If you have never coded before, follow these simple steps on your computer:
 
-STEP 1: INSTALL PYTHON
-1. Go to https://www.python.org/downloads/ and download Python (version 3.10 or newer).
-2. Run the installer. 
-   IMPORTANT: Make sure to check the box that says "Add Python to PATH" before 
-   clicking "Install Now".
+### PART 1: HOW TO INSTALL AND RUN THIS APP
+STEP 1: Install Python
+- Go to https://www.python.org/downloads/ and download Python (version 3.10+).
+- CRITICAL: Check the box during installation that says "Add Python to PATH".
 
-STEP 2: OPEN YOUR COMMAND LINE / TERMINAL
-- Windows: Press the Windows Key, type "cmd", and open "Command Prompt".
-- Mac: Press Command + Space, type "Terminal", and open it.
+STEP 2: Save the File Correctly (Avoid the .txt Trap!)
+- Save this code into a file named EXACTLY: `app.py`
+- TIP: If using Windows Notepad, select "All Files (*.*)" from the save dialog 
+  so it doesn't accidentally save as `app.py.txt`.
 
-STEP 3: INSTALL THE REQUIRED LIBRARIES
-Copy and paste the following commands into your command prompt/terminal 
-and press Enter after each line to install all necessary packages:
+STEP 3: Open Terminal / Command Prompt
+- Windows: Press Windows Key, type "cmd", open Command Prompt.
+- Mac: Press Command + Space, type "Terminal", open Terminal.
+- TIP: Type `cd ` (with a space), then drag and drop the folder containing your 
+  `app.py` file directly into the terminal window and press Enter.
 
-    pip install streamlit pandas python-docx selenium beautifulsoup4 pypdf
+STEP 4: Install Required Libraries
+Copy and paste this command into your terminal and press Enter:
+    pip install streamlit pandas python-docx selenium beautifulsoup4 pypdf langchain-community webdriver-manager duckduckgo-search
 
-(Note: 'sqlite3', 'datetime', 'os', 'platform', 're', 'urllib', 'io', and 'time' 
- come pre-installed with Python so you do not need to install them separately).
+STEP 5: (For Script 1 Only) Start Ollama
+- Make sure Ollama (https://ollama.com/) is installed and running in your background taskbar.
+- Open a terminal and download the local AI model once by typing: `ollama run llama3.2:1b`
+- (You can close that specific model window afterward; Ollama runs in the background).
 
-STEP 4: INSTALL GOOGLE CHROME & CHROMEDRIVER
-This app uses Google Chrome to automatically visit job board pages and extract listings.
-1. Make sure Google Chrome is installed on your computer.
-2. Selenium will automatically connect to your system's Chrome browser.
+STEP 6: Launch the App!
+Type this command into your terminal and press Enter:
+    streamlit run app.py
 
-STEP 5: SAVE AND RUN THIS SCRIPT
-1. Save this code into a file named exactly: `resume_job_intelligence.py`
-2. Open your command prompt/terminal, navigate to the folder where you saved the file 
-   (e.g., type `cd Documents`), and run the web app by typing:
-    
-    streamlit run resume_job_intelligence.py
+---
 
-3. A webpage will automatically open in your web browser where you can upload 
-   your master resume and run the multi-page scraper!
+### PART 2: COMMON FAILURE REASONS & HOW TO FIX THEM
+
+1. Error: "ModuleNotFoundError: No module named 'streamlit'" (or similar)
+   - REASON: You forgot to run the `pip install` command, or you have multiple 
+     versions of Python installed on your computer.
+   - FIX: Try running `python3 -m pip install ...` instead of just `pip install`.
+
+2. Error: "Streamlit is not recognized as an internal or external command"
+   - REASON: Python was not added to your computer's system PATH during installation.
+   - FIX: Re-run the Python installer, select "Modify", and check "Add Python to PATH", 
+     then restart your terminal.
+
+3. Error: "Scraper Error / Selenium Timeout / Chrome failed to start"
+   - REASON: Google Chrome is either missing, outdated, or blocked by antivirus/firewall.
+   - FIX: Ensure Google Chrome is installed and updated to the latest version. Alternatively, 
+     if using Script 2, uncheck "Run Headless Browser" in the sidebar to watch Chrome run live.
+
+4. Error: "Connection Refused" or AI not responding (Script 1)
+   - REASON: The Ollama background application is closed or turned off.
+   - FIX: Open the Ollama app from your computer applications list so it runs in your system tray.
+
+5. File Error: The terminal says "File app.py does not exist"
+   - REASON: You named the file `app.py.txt` by accident, or your terminal is not 
+     navigated to the correct folder.
+   - FIX: Check your folder view settings to make sure file extensions are visible, rename 
+     the file to remove `.txt`, and use the `cd` command to navigate to that folder in terminal.
 =============================================================================
 """
+
+
 
 # Import necessary built-in Python modules
 import sqlite3                  # Database library to store scraped jobs on your local computer
